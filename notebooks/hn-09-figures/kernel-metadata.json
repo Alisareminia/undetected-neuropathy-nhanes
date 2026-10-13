@@ -1,0 +1,22 @@
+{
+  "id": "alisaremi/hn-09-figures",
+  "title": "hn-09-figures",
+  "code_file": "hn-09-figures.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [
+    "alisaremi/hn-01-analysis",
+    "alisaremi/hn-03-strengthen",
+    "alisaremi/hn-04-fixes",
+    "alisaremi/hn-05-pu",
+    "alisaremi/hn-06-pu2",
+    "alisaremi/hn-07-figdata"
+  ],
+  "model_sources": []
+}

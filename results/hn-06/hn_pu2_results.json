@@ -1,0 +1,59 @@
+{
+ "model": {
+  "auroc_original": 0.7361901560739165,
+  "auroc_big_tuned": 0.7430238831816974,
+  "best_params": {
+   "learning_rate": 0.03,
+   "subsample": 0.8,
+   "subsample_freq": 1,
+   "colsample_bytree": 0.7,
+   "verbose": -1,
+   "random_state": 2026,
+   "num_leaves": 4,
+   "min_child_samples": 80,
+   "n_estimators": 600,
+   "reg_lambda": 5
+  },
+  "n_features": 59
+ },
+ "known_answer": {
+  "big_tuned": {
+   "true": 0.0905,
+   "est_mean": 0.5774,
+   "rel_err_mean": 5.3835,
+   "rel_err_abs": 5.3835
+  },
+  "original": {
+   "true": 0.0905,
+   "est_mean": 0.6009,
+   "rel_err_mean": 5.6428,
+   "rel_err_abs": 5.6428
+  }
+ },
+ "alpha_big": {
+  "alpha": 0.36746342027904855,
+  "c": 0.28179925035207176,
+  "sub_median": 0.3744804532899134,
+  "sub_ci": [
+   0.3554933660490233,
+   0.39491104032099383
+  ],
+  "us_adults_40plus": 34321193.27709343,
+  "known_answer_abs_rel_err": 5.3835,
+  "CREDIBLE": false
+ },
+ "V1_big": {
+  "foot_sx": {
+   "OR": 1.6597144977065303,
+   "p": 1.0501106357960399e-14
+  },
+  "back_pain": {
+   "OR": 1.1721885299570594,
+   "p": 0.0002472141957194088
+  },
+  "hand_only_sx": {
+   "OR": 1.0474968221965069,
+   "p": 0.5446099602503673
+  }
+ }
+}

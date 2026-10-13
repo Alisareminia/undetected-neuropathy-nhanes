@@ -1,0 +1,13 @@
+numpy
+pandas
+pyarrow
+scipy
+scikit-learn
+statsmodels
+lightgbm
+lifelines
+umap-learn
+matplotlib
+adjustText
+requests
+jupyter
