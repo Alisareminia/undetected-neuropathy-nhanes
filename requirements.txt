@@ -10,4 +10,5 @@ umap-learn
 matplotlib
 adjustText
 requests
+joblib
 jupyter

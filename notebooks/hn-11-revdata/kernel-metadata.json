@@ -1,0 +1,15 @@
+{
+  "id": "alisaremi/hn-11-revdata",
+  "title": "hn-11-revdata",
+  "code_file": "hn-11-revdata.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

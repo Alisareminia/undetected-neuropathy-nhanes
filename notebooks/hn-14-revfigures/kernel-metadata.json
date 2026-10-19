@@ -1,0 +1,15 @@
+{
+  "id": "alisaremi/hn-14-revfigures",
+  "title": "hn-14-revfigures",
+  "code_file": "hn-14-revfigures.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": ["alisaremi/hn-11-revdata", "alisaremi/hn-12-revsurvey", "alisaremi/hn-13-revboot"],
+  "model_sources": []
+}

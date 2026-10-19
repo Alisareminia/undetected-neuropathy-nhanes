@@ -1,0 +1,15 @@
+{
+  "id": "alisaremi/hn-13-revboot",
+  "title": "hn-13-revboot",
+  "code_file": "hn-13-revboot.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": ["alisaremi/hn-11-revdata"],
+  "model_sources": []
+}
