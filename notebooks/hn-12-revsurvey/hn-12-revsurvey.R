@@ -76,11 +76,12 @@ OUT$prevalence <- prev
 print(str(prev$D_hidden))
 
 # ---------------------------------------------------------------- score contrasts (scores treated as fixed)
-contrast <- function(score, mask = rep(TRUE, nrow(d)), dummies = "g") {
+contrast <- function(score, mask = rep(TRUE, nrow(d)), dummies = "g", extra = "") {
   ok <- coh & mask & !is.na(d[[score]]) & !is.na(d$race) &
+        (if (extra != "") complete.cases(d[, strsplit(gsub(" ", "", extra), "\\+")[[1]][-1], drop = FALSE]) else TRUE) &
         (if (dummies == "g") d$group %in% SCORED else d$group_strict %in% SCORED)
   dd <- paste0(dummies, names(G))
-  fit <- svyglm(as.formula(paste(score, "~", paste(dd, collapse = " + "), "+ age + female + race")), design = des[ok, ])
+  fit <- svyglm(as.formula(paste(score, "~", paste(dd, collapse = " + "), "+ age + female + race", extra)), design = des[ok, ])
   b <- coef(fit); s <- SE(fit); df <- sub_df(ok)
   res <- list(n = sum(ok), df = df)
   for (k in names(G)) res[[paste0(k, "_vs_A")]] <- est_ci(unname(b[paste0(dummies, k)]), unname(s[paste0(dummies, k)]), df)
@@ -95,6 +96,8 @@ contrast <- function(score, mask = rep(TRUE, nrow(d)), dummies = "g") {
 }
 SP <- list(
   main = list("s_main"), uniform = list("s_main_uniform"), nogly = list("s_nogly"),
+  nobody = list("s_nobody"), nobody_nogly = list("s_nobody_nogly"),
+  adj_body = list("s_main", rep(TRUE, nrow(d)), "g", "+ bmi + waist"),
   nodm = list("s_nodm", d$diabetes == 0), lr = list("s_lr"), en = list("s_en"),
   heldout = list("s_heldout", d$SDDSRVYR == 3), corroborated = list("s_main", rep(TRUE, nrow(d)), "s"),
   sciatica = list("s_sciatica"), lowb12 = list("s_lowb12"), vascular = list("s_vascular"), comorb = list("s_comorb"),
@@ -104,7 +107,8 @@ SP <- list(
 OUT$contrasts <- list()
 for (nm in names(SP)) {
   a <- SP[[nm]]
-  r <- do.call(contrast, c(list(score = a[[1]]), if (length(a) > 1) list(mask = a[[2]]), if (length(a) > 2) list(dummies = a[[3]])))
+  r <- do.call(contrast, c(list(score = a[[1]]), if (length(a) > 1) list(mask = a[[2]]), if (length(a) > 2) list(dummies = a[[3]]),
+                           if (length(a) > 3) list(extra = a[[4]])))
   OUT$contrasts[[nm]] <- r
   cat(sprintf("%-26s n=%5d  D-E %.3f (%.3f, %.3f)  D-A %.3f\n", nm, r$n, r$D_minus_E$est, r$D_minus_E$lo, r$D_minus_E$hi,
               r$D_vs_A$est))

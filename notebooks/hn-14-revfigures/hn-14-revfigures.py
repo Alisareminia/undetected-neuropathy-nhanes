@@ -754,6 +754,8 @@ def flags_for(name):
     if name in COMBO:
         return [EXL[x] for x in COMBO[name]]
     return {"nogly": ["No glycemic features"], "nodm": ["Adults without diabetes"], "heldout": ["Held-out cycle 2003–04"],
+            "nobody": ["No body-size features"], "nobody_nogly": ["No body-size features", "No glycemic features"],
+            "adj_body": ["Adjusted for BMI and waist"],
             "lr": ["Logistic regression (L2)"], "en": ["Elastic net"], "corroborated": ["Corroborated symptoms"],
             "uniform": ["Single-fold scoring"], "main": []}.get(name, [])
 
@@ -770,12 +772,14 @@ def hspec(name, extra_flags=None, ctrl=True):
                 p=v["D"]["p"], ctrl=v["E"] if ctrl else None, flags=set(extra_flags if extra_flags is not None else flags_for(name)))
 
 
-bio_specs = [dspec(n) for n in ["main", "uniform", "nogly", "nodm", "heldout", "corroborated", "sciatica", "lowb12", "vascular",
+bio_specs = [dspec(n) for n in ["main", "uniform", "nogly", "nobody", "nobody_nogly", "adj_body", "nodm", "heldout",
+                                "corroborated", "sciatica", "lowb12", "vascular",
                                 "comorb", "urate", "neurotox", "hcv", "thyroid", "sciatica_lowb12_vascular", "old_all", "new",
                                 "everything", "lr", "en"]]
 EXN = list(EXL.values())
 bio_cats = [("Learner", ["Logistic regression (L2)", "Elastic net"]), ("Scoring", ["Single-fold scoring"]),
-            ("Features", ["No glycemic features"]), ("Sample", ["Adults without diabetes", "Held-out cycle 2003–04"]),
+            ("Features", ["No glycemic features", "No body-size features"]), ("Adjustment", ["Adjusted for BMI and waist"]),
+            ("Sample", ["Adults without diabetes", "Held-out cycle 2003–04"]),
             ("Case definition", ["Corroborated symptoms"]), ("Exclusions", EXN)]
 mort_specs = ([hspec("main"), hspec("nodm", ["Adults without diabetes"]), hspec("excl2y", ["Excl. deaths < 2 y"]),
                hspec("p1999_2002", ["Cycles 1999–2002 only"]), hspec("p2003_2004", ["Cycle 2003–04 only"]),
@@ -867,12 +871,12 @@ def spec_curve(fig, x, top, w, hc, specs, cats, color, null, log, ylab, ylim, yt
     return axc, axm
 
 
-fig = newfig(138)
+fig = newfig(146)
 spec_curve(fig, 52, 8, 40, 40, bio_specs, bio_cats, C_HID, 0, False, "SMN − back pain only (logit)", (-0.12, 0.6),
            [0, 0.2, 0.4], "Transfer-model contrast")
 spec_curve(fig, 140, 8, 40, 40, mort_specs, mort_cats, C_HID, 1, True, "Hazard ratio, SMN vs reference", (0.55, 6.0),
            [0.6, 1, 1.5, 2, 3, 5], "All-cause mortality")
-axlg = axmm(fig, 20, 131, 160, 4)
+axlg = axmm(fig, 20, 139, 160, 4)
 axlg.axis("off")
 axlg.legend(handles=[Line2D([], [], color=INK2, lw=2.2, marker="o", ms=3.4, mec="white", label="SMN, 95% CI excludes null"),
                      Line2D([], [], color=INK2, lw=2.2, marker="o", ms=3.4, mfc="white", label="95% CI includes null"),

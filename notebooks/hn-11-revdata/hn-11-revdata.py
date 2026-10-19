@@ -321,6 +321,10 @@ def add(name, df, feats=FEATS, make_model=None, uniform=False):
 
 add("main", co, uniform=True)
 add("nogly", co, FEATS_NO_GLY)
+# body size: obesity can cause foot pain mechanically, so the model is refitted without body-size measures
+BODY = ["height", "weight", "bmi", "waist"]
+add("nobody", co, [f for f in FEATS if f not in BODY])
+add("nobody_nogly", co, [f for f in FEATS_NO_GLY if f not in BODY])
 add("nodm", co[co.diabetes == 0], FEATS_NO_GLY)
 add("lr", co, make_model=lin())
 add("en", co, make_model=lin(penalty="elasticnet", solver="saga", l1_ratio=0.5))
