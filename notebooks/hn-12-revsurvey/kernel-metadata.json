@@ -1,8 +1,8 @@
 {
-  "id": "alisaremi/hn-12-revsurvey",
-  "title": "hn-12-revsurvey",
-  "code_file": "hn-12-revsurvey.R",
-  "language": "r",
+  "id": "alisaremi/hn-12-revsurvey-r46",
+  "title": "hn-12-revsurvey-r46",
+  "code_file": "hn-12-revsurvey.py",
+  "language": "python",
   "kernel_type": "script",
   "is_private": true,
   "enable_gpu": false,
@@ -10,6 +10,8 @@
   "enable_internet": true,
   "dataset_sources": [],
   "competition_sources": [],
-  "kernel_sources": ["alisaremi/hn-11-revdata"],
+  "kernel_sources": [
+    "alisaremi/hn-11-revdata"
+  ],
   "model_sources": []
 }

@@ -17,7 +17,7 @@ import requests
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -137,7 +137,12 @@ assert flow["included"] == 7894, flow["included"]
 # %%
 d["foot_sx"] = np.where(d.DIQ120 == 1, d.DIQ130.isin([2, 3]).astype(float), np.where(d.DIQ120 == 2, 0.0, np.nan))
 d["hand_only_sx"] = ((d.DIQ120 == 1) & (d.DIQ130 == 1)).astype(float)
-d["back_pain"] = (d.MPQ070 == 1).astype(float)
+d["back_pain"] = (d.MPQ070 == 1).astype(float)  # missing MPQ070 counts as no back pain
+# pain sites, for the multi-site pain checks requested in the second review (DIQ130: 1 hands, 2 feet, 3 both)
+d["sx_feet_only"] = ((d.DIQ120 == 1) & (d.DIQ130 == 2)).astype(int)
+d["sx_hands_and_feet"] = ((d.DIQ120 == 1) & (d.DIQ130 == 3)).astype(int)
+d["mpq070_missing"] = (~d.MPQ070.isin([1, 2])).astype(int)
+d["n_pain_sites"] = d.foot_sx.fillna(0) + ((d.DIQ120 == 1) & d.DIQ130.isin([1, 3])) + d.back_pain
 d["cohort"] = (age40 & exam & mono & sx).astype(int)
 d["group"] = np.select(
     [(d.pn == 1) & (d.foot_sx == 1), (d.pn == 1) & (d.foot_sx == 0), (d.pn == 0) & (d.foot_sx == 1),
@@ -194,6 +199,8 @@ print("participants with >=1 missing model input: %.1f%%" % OUT["any_missing_inp
 # %%
 abi = d[[c for c in ["LEXLABPI", "LEXRABPI"] if c in d]].min(axis=1)
 d["abi_min"] = abi
+d["abi_max"] = d[[c for c in ["LEXLABPI", "LEXRABPI"] if c in d]].max(axis=1)
+d["abi_n_legs"] = d[[c for c in ["LEXLABPI", "LEXRABPI"] if c in d]].notna().sum(axis=1)
 d["claud"] = ((d.DIQ140 == 1) & (d.DIQ150 == 1)).astype(int)
 d["cvd_hist"] = d[[c for c in ["MCQ160B", "MCQ160C", "MCQ160E", "MCQ160F"] if c in d]].eq(1).any(axis=1).astype(int)
 d["x_sciatica"] = (d.MPQ080 == 1).astype(int)
@@ -212,7 +219,7 @@ def on_drug(names):
     return d.SEQN.isin(ids).astype(int)
 
 
-GOUT_RX = ["ALLOPURINOL", "COLCHICINE", "PROBENECID", "SULFINPYRAZONE", "FEBUXOSTAT"]
+GOUT_RX = ["ALLOPURINOL", "COLCHICINE", "PROBENECID", "SULFINPYRAZONE"]  # febuxostat was approved only in 2009
 NEURO_RX = [  # established neurotoxic medications
     "VINCRISTINE", "VINBLASTINE", "VINORELBINE", "CISPLATIN", "CARBOPLATIN", "OXALIPLATIN", "PACLITAXEL", "DOCETAXEL",
     "BORTEZOMIB", "THALIDOMIDE", "LENALIDOMIDE", "CAPECITABINE", "FLUOROURACIL", "CYTARABINE",
@@ -284,15 +291,23 @@ SCORED = ["A_reference", "B_painless_PN", "C_painful_PN", "D_hidden", "E_backpai
 logit = lambda p: np.log(np.clip(p, 1e-4, 1 - 1e-4) / (1 - np.clip(p, 1e-4, 1 - 1e-4)))
 
 
-def crossfit(df, feats, make_model=None, seed=2026):
+def crossfit(df, feats, make_model=None, seed=2026, design=False):
+    """design=True: survey weights as sample_weight and folds grouped by PSU (second-review sensitivity analysis)."""
     df = df[df.group.isin(SCORED)]
     train = df[df.group.isin(TRAIN)]
     y = (train.group == "B_painless_PN").astype(int).values
     oth = df[~df.group.isin(TRAIN)]
     oof, avg = np.zeros(len(train)), np.zeros(len(oth))
     fold_pred = np.zeros((5, len(oth)))
-    for k, (tr, te) in enumerate(StratifiedKFold(5, shuffle=True, random_state=seed).split(train, y)):
-        m = (make_model() if make_model else lgb.LGBMClassifier(**PARAMS)).fit(train[feats].iloc[tr], y[tr])
+    if design:
+        psu = (train.SDMVSTRA * 10 + train.SDMVPSU).values
+        folds = StratifiedGroupKFold(5, shuffle=True, random_state=seed).split(train, y, psu)
+        sw = (train.w6 / train.w6.mean()).values
+    else:
+        folds = StratifiedKFold(5, shuffle=True, random_state=seed).split(train, y)
+    for k, (tr, te) in enumerate(folds):
+        m = make_model() if make_model else lgb.LGBMClassifier(**PARAMS)
+        m = m.fit(train[feats].iloc[tr], y[tr], sample_weight=sw[tr]) if design else m.fit(train[feats].iloc[tr], y[tr])
         oof[te] = m.predict_proba(train[feats].iloc[te])[:, 1]
         fold_pred[k] = m.predict_proba(oth[feats])[:, 1]
     avg = fold_pred.mean(0)
@@ -310,8 +325,8 @@ SPECS = {}
 AUC = {}
 
 
-def add(name, df, feats=FEATS, make_model=None, uniform=False):
-    s_avg, s_uni, auc = crossfit(df, feats, make_model)
+def add(name, df, feats=FEATS, make_model=None, uniform=False, design=False):
+    s_avg, s_uni, auc = crossfit(df, feats, make_model, design=design)
     d[f"s_{name}"] = s_avg
     if uniform:
         d[f"s_{name}_uniform"] = s_uni
@@ -328,6 +343,10 @@ add("nobody_nogly", co, [f for f in FEATS_NO_GLY if f not in BODY])
 add("nodm", co[co.diabetes == 0], FEATS_NO_GLY)
 add("lr", co, make_model=lin())
 add("en", co, make_model=lin(penalty="elasticnet", solver="saga", l1_ratio=0.5))
+# second review: survey-weighted training with PSU-grouped folds; and a model without demographic inputs
+add("design", co, design=True)
+DEMO = ["age", "female", "race_nhb", "race_mex", "race_oth_hisp", "race_other"]
+add("nodemo", co, [f for f in FEATS if f not in DEMO])
 for x in ["x_sciatica", "x_lowb12", "x_vascular", "x_comorb", "x_old_all", "x_urate", "x_neurotox", "x_hcv", "x_thyroid",
           "x_new", "x_everything"]:
     add(x[2:], co[co[x] == 0])
@@ -353,7 +372,8 @@ d["group_strict"] = d.group.where(~((d.group == "D_hidden") & (d.corroborated ==
 # %%
 keep = (["SEQN", "SDDSRVYR", "SDMVPSU", "SDMVSTRA", "w6", "WTMEC2YR", "WTMEC4YR", "cohort", "group", "group_strict",
          "age", "female", "race", "educ", "pir", "smoke", "diabetes", "dm_self", "ELIGSTAT", "MORTSTAT", "UCOD", "PERMTH_EXAM",
-         "abi_min", "claud", "cvd_hist", "corroborated", "foot_numb", "tsh", "LBDHCV"] + flags +
+         "abi_min", "abi_max", "abi_n_legs", "claud", "DIQ140", "DIQ150", "back_pain", "sx_feet_only", "sx_hands_and_feet",
+         "mpq070_missing", "n_pain_sites", "cvd_hist", "corroborated", "foot_numb", "tsh", "LBDHCV"] + flags +
         [c for c in d if c.startswith("cond_")] + FEATS + [c for c in d if c.startswith("s_")])
 keep = list(dict.fromkeys(k for k in keep if k in d))
 ex = d[(d.w6 > 0) & d.w6.notna()][keep]  # every examined participant (design rows); the cohort is a subpopulation

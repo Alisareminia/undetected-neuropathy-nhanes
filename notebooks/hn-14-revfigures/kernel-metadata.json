@@ -10,6 +10,10 @@
   "enable_internet": true,
   "dataset_sources": [],
   "competition_sources": [],
-  "kernel_sources": ["alisaremi/hn-11-revdata", "alisaremi/hn-12-revsurvey", "alisaremi/hn-13-revboot"],
+  "kernel_sources": [
+    "alisaremi/hn-11-revdata",
+    "alisaremi/hn-12-revsurvey-r46",
+    "alisaremi/hn-13-revboot"
+  ],
   "model_sources": []
 }

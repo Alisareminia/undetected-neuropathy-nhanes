@@ -2,8 +2,8 @@
 
 Analysis code for:
 
-> Saremi A, Murin PJ. *Neuropathic Foot Symptoms Despite a Normal Monofilament Examination in US Adults: Metabolic
-> Profile and Mortality (NHANES 1999–2004).* Manuscript in preparation.
+> Saremi A, Murin PJ. *Foot Pain or Tingling Despite a Normal Monofilament Examination: Metabolic Profile and Mortality
+> in United States Adults.* Manuscript in preparation.
 
 The study uses NHANES 1999–2004 (7,894 adults aged ≥40 years with a monofilament examination and symptom answers)
 and the NCHS public-use linked mortality files to 2019. The symptomatic, monofilament-normal (SMN) group reported foot
@@ -27,9 +27,9 @@ No data file has to be downloaded by hand.
 
 | Notebook | Language | What it does | Used in the paper |
 |---|---|---|---|
-| `hn-11-revdata` | Python | Cohort and STROBE flow counts, groups, covariates, exclusion flags (urate and gout medication, neurotoxic medication, hepatitis C, thyroid disease and earlier exclusions), eight unrelated conditions, transfer-model scores for every sensitivity analysis | Fig. 1, Methods, Supplementary Tables S1–S3 |
-| `hn-12-revsurvey` | R (`survey`) | Design-based analyses: Taylor linearization with masked strata and PSUs, subpopulations, design degrees of freedom; prevalence, score contrasts, Cox models, circulation interaction, Schoenfeld residuals, E-value, Kaplan–Meier curves | Results, Fig. 1, 2b, 4, Supplementary Fig. S1, Table S3 |
-| `hn-13-revboot` | Python | Rao–Wu bootstrap (1,000 replicates) of the whole pipeline: model refitting, scoring, contrasts, survey-weighted biomarker SMDs and cosine similarities; bias-corrected percentile intervals | Results, Fig. 2b, 3, Supplementary Fig. S2, Table S4 |
+| `hn-11-revdata` | Python | Cohort and STROBE flow counts, groups, pain sites, covariates, ankle–brachial index of each leg, exclusion flags (urate and gout medication, neurotoxic medication, hepatitis C, thyroid disease and earlier exclusions), eight unrelated conditions, transfer-model scores for every sensitivity analysis (including survey-weighted training with PSU-grouped folds and a model without demographic inputs) | Figure 1, Methods, Supplemental Tables S1–S3 |
+| `hn-12-revsurvey` | R (`survey`, `mice`) | Design-based analyses: Taylor linearization with masked strata and PSUs, subpopulations, design degrees of freedom; prevalence, pain at other sites, score contrasts, Cox models (complete case, without income-to-poverty ratio, multiple imputation), circulation interaction, Schoenfeld residuals, E-value, Kaplan–Meier curves | Results, Figures 1, 2b, 4, Supplemental Figure S1, Table S3 |
+| `hn-13-revboot` | Python | Rao–Wu bootstrap (1,000 replicates) of the whole pipeline: model refitting, scoring, contrasts, survey-weighted biomarker SMDs and cosine similarities; bias-corrected percentile intervals | Results, Figures 2b, 3, Supplemental Figure S2, Table S4 |
 | `hn-14-revfigures` | Python | Plot-only figure notebook; reads the outputs above | All figures |
 | `hn-10-table1` | Python | Survey-weighted participant characteristics | Table 1 |
 
@@ -45,7 +45,9 @@ hidden fraction (`hn-06-pu2`) failed its known-answer test and is mentioned in o
 
 ## Running
 
-The notebooks were run on Kaggle (CPU, internet on). Each notebook is kept as source (`.py` percent format or `.R`)
+The notebooks were run on Kaggle (CPU, internet on). Kaggle no longer runs R kernels, so `hn-12` is run by a small
+Python launcher (`hn-12-revsurvey.py`, generated from the R file by `tools/make_r_launcher.py`) that calls `Rscript`
+(R 4.6.1, survey 4.5, mice 3.19.0); edit the `.R` file, not the launcher. Each notebook is kept as source (`.py` percent format or `.R`)
 and, for Python, as the notebook that was run (`.ipynb`, built with `tools/make_nb.py`); `kernel-metadata.json` holds
 the Kaggle settings. To rerun locally:
 
@@ -55,7 +57,7 @@ jupyter nbconvert --to notebook --execute notebooks/hn-11-revdata/hn-11-revdata.
 ```
 
 `hn-12`, `hn-13` and `hn-14` look for their inputs under `/kaggle/input/`; locally, copy `results/` there or change the
-input path. `hn-12` needs R ≥ 4.4 with the `survey` and `jsonlite` packages.
+input path. `hn-12` needs R ≥ 4.4 with the `survey`, `mice`, `mitools` and `jsonlite` packages.
 
 ## Outputs
 
@@ -73,12 +75,12 @@ input path. `hn-12` needs R ≥ 4.4 with the `survey` and `jsonlite` packages.
 
 | Paper | File |
 |---|---|
-| Fig. 1 | `Fig1_flow.pdf` |
-| Fig. 2 | `Fig2_transfer_test.pdf` |
-| Fig. 3 | `Fig3_biomarker_profile.pdf` |
-| Fig. 4 | `Fig4_mortality.pdf` |
-| Supplementary Fig. S1 | `FigS1_sensitivity.pdf` |
-| Supplementary Fig. S2 | `FigS2_similarity.pdf` |
+| Figure 1 | `Fig1_flow.pdf` |
+| Figure 2 | `Fig2_transfer_test.pdf` |
+| Figure 3 | `Fig3_biomarker_profile.pdf` |
+| Figure 4 | `Fig4_mortality.pdf` |
+| Supplemental Figure S1 | `FigS1_sensitivity.pdf` |
+| Supplemental Figure S2 | `FigS2_similarity.pdf` |
 
 ## Protocol
 

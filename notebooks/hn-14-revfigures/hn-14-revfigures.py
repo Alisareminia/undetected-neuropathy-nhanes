@@ -190,7 +190,8 @@ def save(fig, name):
             sp = a.spines[side]
             if sp.get_visible() and a.axison:
                 sp.set_position(("outward", 2.5))
-    for ext, kw in [("png", dict(dpi=600)), ("pdf", {}), ("svg", {})]:
+    for ext, kw in [("png", dict(dpi=600)), ("pdf", {}), ("svg", {}),
+                    ("tiff", dict(dpi=600, pil_kwargs={"compression": "tiff_lzw"}))]:
         fig.savefig(f"figures/{name}.{ext}", bbox_inches="tight", pad_inches=0.04, **kw)
     print("saved", name)
 
@@ -413,15 +414,15 @@ for g, (x0, w_) in pos.items():
     ax.add_patch(FancyBboxPatch((x0, yg), w_, 29, boxstyle="round,pad=0,rounding_size=0.8", facecolor=tint(c, 0.12), edgecolor=c,
                                 lw=1.3 if g == "D_hidden" else 0.6, zorder=2))
     ax.text(xm, yg + 3.3, nm, ha="center", va="center", fontsize=6.0, fontweight="bold", color=INK, zorder=3)
-    ax.text(xm, yg + 8.0, "\n".join(textwrap.wrap(df_, 24)), ha="center", va="center", fontsize=4.9, color=INK2, zorder=3,
+    ax.text(xm, yg + 8.0, "\n".join(textwrap.wrap(df_, 24)), ha="center", va="center", fontsize=5.0, color=INK, zorder=3,
             linespacing=1.15)
     ax.text(xm, yg + 13.6, f"n = {NG[g]:,}", ha="center", va="center", fontsize=5.8, color=INK, zorder=3)
     ax.text(xm, yg + 17.4, f"{p['prop'] * 100:.1f}% ({p['lo'] * 100:.1f}–{p['hi'] * 100:.1f})", ha="center", va="center",
             fontsize=5.5, color=INK, zorder=3)
     km_ = H12["km_n"][g]
-    ax.text(xm, yg + 21.4, f"Died by 2019: {km_['deaths']:,} / {km_['n']:,}", ha="center", va="center", fontsize=4.9,
-            color=INK2, zorder=3)
-    ax.text(xm, yg + 25.4, role, ha="center", va="center", fontsize=4.9, color=INK2, style="italic", zorder=3)
+    ax.text(xm, yg + 21.4, f"Died by 2019: {km_['deaths']:,} / {km_['n']:,}", ha="center", va="center", fontsize=5.2,
+            color=INK, zorder=3)
+    ax.text(xm, yg + 25.4, role, ha="center", va="center", fontsize=5.2, color=INK, style="italic", zorder=3)
 FIG1_BOTTOM = yg + 29
 fs_share = PREV["share_of_foot_symptoms"]
 save(fig, "Fig1_flow")
@@ -641,7 +642,7 @@ LEGENDS["Fig3_biomarker_profile"] = (
 # ## Figure 4 — Mortality
 
 # %%
-fig = newfig(124)
+fig = newfig(136)
 ax = axmm(fig, 26, 8, 78, 54)
 for g in ORDER:
     k = KM[(KM.group == g) & (KM.t <= 17)]
@@ -664,15 +665,15 @@ axr.set_ylim(-0.5, len(ORDER) - 0.5)
 axr.axis("off")
 for i, g in enumerate(ORDER):
     y = len(ORDER) - 1 - i
-    axr.text(-1.4, y, NAME[g], ha="right", va="center", fontsize=5.4,
-             color=C_HID_TXT if g == "D_hidden" else (GC[g] if g != "A_reference" else INK),
+    axr.text(-1.5, y, NAME[g], ha="right", va="center", fontsize=5.4, color=C_HID_TXT if g == "D_hidden" else INK,
              fontweight="bold" if g == "D_hidden" else "normal")
+    axr.plot([-1.3, -0.68], [y, y], color=GC[g], lw=1.6, ls=GLS[g], clip_on=False, solid_capstyle="butt")
     for yr in [0, 5, 10, 15]:
         n_ = KR[(KR.group == g) & (KR.year == yr)].at_risk
         axr.text(yr, y, f"{int(n_.iloc[0]):,}" if len(n_) else "", ha="center", va="center", fontsize=5.4)
     kn = H12["km_n"][g]
-    axr.text(19.4, y, f"{kn['deaths']:,} / {kn['n']:,}", ha="right", va="center", fontsize=5.4, color=INK2)
-axr.text(-1.4, len(ORDER) - 0.1, "Number at risk", ha="right", va="bottom", fontsize=5.6, fontweight="bold")
+    axr.text(19.4, y, f"{kn['deaths']:,} / {kn['n']:,}", ha="right", va="center", fontsize=5.4, color=INK)
+axr.text(-1.5, len(ORDER) - 0.1, "Number at risk", ha="right", va="bottom", fontsize=5.6, fontweight="bold")
 axr.text(19.4, len(ORDER) - 0.1, "Deaths / n", ha="right", va="bottom", fontsize=5.6, fontweight="bold")
 rows = [g for g in ORDER if g != "A_reference"]
 H2 = {g: COX["main"][KEY[g]] for g in rows}
@@ -693,24 +694,27 @@ axb.set_yticks([])
 axb.spines["left"].set_visible(False)
 axb.set_ylim(-0.55, len(rows) - 0.3)
 axb.set_xlabel("Adjusted hazard ratio vs reference")
+RA = COX["main"]["A"]
+axb.text(0.5, -0.17, f"Reference (HR 1): {RA['deaths']:,}/{RA['n']:,} · model sample {COX['main']['deaths']:,} deaths / "
+         f"{COX['main']['n']:,} adults", transform=axb.transAxes, ha="center", va="top", fontsize=5.0, color=INK)
 ptitle(axb, "Cox model")
 letter(fig, 120, 2, "b")
 causes = [("cardiovascular", "Cardio-\nvascular"), ("cancer", "Cancer"), ("other_causes", "Other\ncauses")]
 HRC = LinearSegmentedColormap.from_list("hr", [C_PNL, "#F6F6F4", C_PFL])
 hnorm = TwoSlopeNorm(vmin=np.log(0.5), vcenter=0, vmax=np.log(3))
-axc = axmm(fig, 146, 80, 34, 30)
+axc = axmm(fig, 146, 84, 34, 38)
 for i, g in enumerate(rows):
     y = len(rows) - 1 - i
     for j, (ck, cl) in enumerate(causes):
         v = COX[f"cause_{ck}"][KEY[g]]
         sig = v["lo"] > 1 or v["hi"] < 1
         lv = np.log(v["HR"])
-        axc.add_patch(Rectangle((j + 0.04, y + 0.06), 0.92, 0.88, facecolor=HRC(hnorm(np.clip(lv, np.log(0.5), np.log(3)))),
+        axc.add_patch(Rectangle((j + 0.06, y + 0.07), 0.88, 0.86, facecolor=HRC(hnorm(np.clip(lv, np.log(0.5), np.log(3)))),
                                 edgecolor=INK if sig else "none", lw=0.6))
         tc = "white" if abs(lv) > 0.55 else INK
-        axc.text(j + 0.5, y + 0.62, f"{v['HR']:.2f}{stars(v['p'])}", ha="center", va="center", fontsize=5.5, color=tc,
+        axc.text(j + 0.5, y + 0.64, f"{v['HR']:.2f}{stars(v['p'])}", ha="center", va="center", fontsize=5.6, color=tc,
                  fontweight="bold" if sig else "normal")
-        axc.text(j + 0.5, y + 0.3, f"{v['lo']:.2f}–{v['hi']:.2f}", ha="center", va="center", fontsize=4.5, color=tc)
+        axc.text(j + 0.5, y + 0.33, f"{v['lo']:.2f}–{v['hi']:.2f}", ha="center", va="center", fontsize=4.9, color=tc)
 axc.set_xlim(0, 3)
 axc.set_ylim(0, len(rows))
 axc.set_xticks(np.arange(3) + 0.5)
@@ -724,7 +728,7 @@ axc.tick_params(length=0)
 for sp in axc.spines.values():
     sp.set_visible(False)
 ptitle(axc, "Cause-specific hazard ratio")
-letter(fig, 120, 70, "c")
+letter(fig, 120, 74, "c")
 save(fig, "Fig4_mortality")
 plt.show()
 EV = H12["evalue"]
@@ -757,7 +761,8 @@ def flags_for(name):
             "nobody": ["No body-size features"], "nobody_nogly": ["No body-size features", "No glycemic features"],
             "adj_body": ["Adjusted for BMI and waist"],
             "lr": ["Logistic regression (L2)"], "en": ["Elastic net"], "corroborated": ["Corroborated symptoms"],
-            "uniform": ["Single-fold scoring"], "main": []}.get(name, [])
+            "uniform": ["Single-fold scoring"], "design": ["Survey-weighted, PSU-grouped training"],
+            "nodemo": ["No demographic features"], "isolated": ["Isolated foot symptoms"], "main": []}.get(name, [])
 
 
 def dspec(name):
@@ -775,37 +780,43 @@ def hspec(name, extra_flags=None, ctrl=True):
 bio_specs = [dspec(n) for n in ["main", "uniform", "nogly", "nobody", "nobody_nogly", "adj_body", "nodm", "heldout",
                                 "corroborated", "sciatica", "lowb12", "vascular",
                                 "comorb", "urate", "neurotox", "hcv", "thyroid", "sciatica_lowb12_vascular", "old_all", "new",
-                                "everything", "lr", "en"]]
+                                "everything", "lr", "en", "design", "nodemo", "isolated"]]
 EXN = list(EXL.values())
-bio_cats = [("Learner", ["Logistic regression (L2)", "Elastic net"]), ("Scoring", ["Single-fold scoring"]),
-            ("Features", ["No glycemic features", "No body-size features"]), ("Adjustment", ["Adjusted for BMI and waist"]),
+bio_cats = [("Learner", ["Logistic regression (L2)", "Elastic net", "Survey-weighted, PSU-grouped training"]),
+            ("Scoring", ["Single-fold scoring"]),
+            ("Features", ["No glycemic features", "No body-size features", "No demographic features"]),
+            ("Adjustment", ["Adjusted for BMI and waist"]),
             ("Sample", ["Adults without diabetes", "Held-out cycle 2003–04"]),
-            ("Case definition", ["Corroborated symptoms"]), ("Exclusions", EXN)]
+            ("Case definition", ["Corroborated symptoms", "Isolated foot symptoms"]), ("Exclusions", EXN)]
 mort_specs = ([hspec("main"), hspec("nodm", ["Adults without diabetes"]), hspec("excl2y", ["Excl. deaths < 2 y"]),
                hspec("p1999_2002", ["Cycles 1999–2002 only"]), hspec("p2003_2004", ["Cycle 2003–04 only"]),
-               hspec("corroborated")] +
+               hspec("corroborated"), hspec("isolated"), hspec("no_pir", ["Without income-to-poverty ratio"]),
+               hspec("mi", ["Multiple imputation"])] +
               [hspec(n) for n in ["sciatica", "lowb12", "vascular", "comorb", "urate", "neurotox", "hcv", "thyroid",
                                   "sciatica_lowb12_vascular", "old_all", "new", "everything"]] +
               [hspec("adj_abi_claud_cvd", ["+ ABI, claudication, CVD"], ctrl=False),
-               hspec("normal_circulation_only", ["Normal circulation only"], ctrl=False)])
+               hspec("normal_circulation_only", ["Normal circulation only (refitted)"], ctrl=False)])
 mort_cats = [("Sample", ["Adults without diabetes", "Cycles 1999–2002 only", "Cycle 2003–04 only", "Excl. deaths < 2 y"]),
-             ("Case definition", ["Corroborated symptoms"]),
+             ("Case definition", ["Corroborated symptoms", "Isolated foot symptoms"]),
+             ("Missing covariates", ["Without income-to-poverty ratio", "Multiple imputation"]),
              ("Exclusions", [e for e in EXN if e != "Excl. PAD / claudication"]),
-             ("Circulation", ["Excl. PAD / claudication", "+ ABI, claudication, CVD", "Normal circulation only"])]
-VASC = {"Excl. PAD / claudication", "+ ABI, claudication, CVD", "Normal circulation only"}
+             ("Circulation", ["Excl. PAD / claudication", "+ ABI, claudication, CVD", "Normal circulation only (refitted)"])]
+VASC = {"Excl. PAD / claudication", "+ ABI, claudication, CVD", "Normal circulation only (refitted)"}
 
 
 def spec_curve(fig, x, top, w, hc, specs, cats, color, null, log, ylab, ylim, yticks, title, row_h=3.15):
     order = sorted(range(len(specs)), key=lambda k: specs[k]["est"])
     n = len(specs)
     axc = axmm(fig, x, top, w, hc)
-    nsig = 0
+    nsig = nsens = 0
     for j, k in enumerate(order):
         s_ = specs[k]
         main = s_["name"] == "Main analysis"
         vas = bool(s_["flags"] & VASC)
         sig = s_["lo"] > null or s_["hi"] < null
-        nsig += sig
+        if not main:
+            nsig += sig
+            nsens += 1
         if main:
             axc.axvspan(j - 0.5, j + 0.5, color="#f0f0f0", lw=0, zorder=0)
         e = s_.get("ctrl")
@@ -831,7 +842,7 @@ def spec_curve(fig, x, top, w, hc, specs, cats, color, null, log, ylab, ylim, yt
     axc.set_xticks([])
     axc.spines["bottom"].set_visible(False)
     axc.set_ylabel(ylab)
-    axc.text(0.02, 0.97, f"{nsig}/{n} intervals exclude {null:g}", transform=axc.transAxes, ha="left", va="top", fontsize=5.3,
+    axc.text(0.02, 0.97, f"{nsig} of {nsens} sensitivity analyses exclude {null:g}", transform=axc.transAxes, ha="left", va="top", fontsize=5.3,
              color=INK2)
     ptitle(axc, title)
     # choice matrix
@@ -871,12 +882,12 @@ def spec_curve(fig, x, top, w, hc, specs, cats, color, null, log, ylab, ylim, yt
     return axc, axm
 
 
-fig = newfig(146)
+fig = newfig(158)
 spec_curve(fig, 52, 8, 40, 40, bio_specs, bio_cats, C_HID, 0, False, "SMN − back pain only (logit)", (-0.12, 0.6),
            [0, 0.2, 0.4], "Transfer-model contrast")
 spec_curve(fig, 140, 8, 40, 40, mort_specs, mort_cats, C_HID, 1, True, "Hazard ratio, SMN vs reference", (0.55, 6.0),
            [0.6, 1, 1.5, 2, 3, 5], "All-cause mortality")
-axlg = axmm(fig, 20, 139, 160, 4)
+axlg = axmm(fig, 20, 151, 160, 4)
 axlg.axis("off")
 axlg.legend(handles=[Line2D([], [], color=INK2, lw=2.2, marker="o", ms=3.4, mec="white", label="SMN, 95% CI excludes null"),
                      Line2D([], [], color=INK2, lw=2.2, marker="o", ms=3.4, mfc="white", label="95% CI includes null"),
