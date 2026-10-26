@@ -131,6 +131,76 @@ for (g in SCORED) {
 print(str(OUT$fig1$D_hidden))
 print(str(prev$D_hidden))
 
+# ---------------------------------------------------------------- Table 1: SMN versus each other group
+# Each comparison uses the subpopulation of the two groups (participants with the characteristic measured).
+# Unadjusted: Rao-Scott F test (binary), Wald t test from survey-weighted linear regression (continuous), design-based
+# Wilcoxon rank test (CRP). Adjusted for age, sex and race and ethnicity (each omitted from its own row): survey-weighted
+# linear regression (mean difference), logistic regression (odds ratio) or linear regression of log CRP (ratio of
+# geometric means). Benjamini-Hochberg q values over the unadjusted tests.
+d$t1_nhw <- as.integer(as.character(d$race) == "NHWhite")
+d$t1_nhb <- as.integer(as.character(d$race) == "NHBlack")
+d$t1_college <- ifelse(is.na(d$educ), NA, as.integer(as.character(d$educ) == "College"))
+d$t1_smoker <- ifelse(is.na(d$smoke), NA, as.integer(as.character(d$smoke) == "current"))
+d$t1_obese <- ifelse(is.na(d$bmi), NA, as.integer(d$bmi >= 30))
+d$t1_egfr60 <- ifelse(is.na(d$egfr), NA, as.integer(d$egfr < 60))
+d$t1_logcrp <- log(d$crp)
+d$smn <- as.integer(d$group == "D_hidden")
+des <- update(des, t1_nhw = d$t1_nhw, t1_nhb = d$t1_nhb, t1_college = d$t1_college, t1_smoker = d$t1_smoker,
+              t1_obese = d$t1_obese, t1_egfr60 = d$t1_egfr60, t1_logcrp = d$t1_logcrp, smn = d$smn,
+              smn_f = factor(d$smn))
+T1 <- list(age = c("age", "cont", "female + race"), women = c("female", "bin", "age + race"),
+           nh_white = c("t1_nhw", "bin", "age + female"), nh_black = c("t1_nhb", "bin", "age + female"),
+           college = c("t1_college", "bin", "age + female + race"), pir = c("pir", "cont", "age + female + race"),
+           current_smoker = c("t1_smoker", "bin", "age + female + race"), bmi = c("bmi", "cont", "age + female + race"),
+           obesity = c("t1_obese", "bin", "age + female + race"), waist = c("waist", "cont", "age + female + race"),
+           diabetes = c("diabetes", "bin", "age + female + race"), hba1c = c("hba1c", "cont", "age + female + race"),
+           sbp = c("sbp", "cont", "age + female + race"), egfr_lt60 = c("t1_egfr60", "bin", "age + female + race"),
+           crp = c("t1_logcrp", "log", "age + female + race"), foot_numbness = c("foot_numb", "bin", "age + female + race"))
+COMP <- c("A_reference", "E_backpain_ctrl", "F_hands_only", "B_painless_PN", "C_painful_PN")
+t1rows <- list()
+for (nm in names(T1)) for (cg in COMP) {
+  v <- T1[[nm]][1]; type <- T1[[nm]][2]; covs <- T1[[nm]][3]
+  ok <- coh & d$group %in% c("D_hidden", cg) & !is.na(d[[v]])
+  dz <- des[ok, ]
+  r <- list(row = nm, comparator = cg, type = type, n_smn = sum(ok & d$smn == 1), n_comp = sum(ok & d$smn == 0))
+  # unadjusted difference (SMN minus comparator; percentage points for binary rows) and test
+  r <- c(r, tryCatch({
+    m <- svyglm(as.formula(paste0(v, " ~ smn")), dz)
+    cf <- summary(m)$coefficients["smn", ]; dfm <- m$df.residual
+    p <- switch(type, bin = svychisq(as.formula(paste0("~", v, " + smn")), dz, statistic = "F")$p.value,
+                cont = unname(cf[4]),
+                log = svyranktest(as.formula(paste0(v, " ~ smn_f")), dz, test = "wilcoxon")$p.value)
+    sc <- if (type == "bin") 100 else 1
+    list(diff = sc * unname(cf[1]), diff_lo = sc * unname(cf[1] - qt(0.975, dfm) * cf[2]),
+         diff_hi = sc * unname(cf[1] + qt(0.975, dfm) * cf[2]), p = as.numeric(p), df = dfm)
+  }, error = function(e) list(error_unadj = conditionMessage(e))))
+  # adjusted
+  r <- c(r, tryCatch({
+    fam <- if (type == "bin") quasibinomial() else gaussian()
+    m <- svyglm(as.formula(paste0(v, " ~ smn + ", covs)), dz, family = fam)
+    cf <- summary(m)$coefficients["smn", ]; dfm <- m$df.residual
+    lo <- cf[1] - qt(0.975, dfm) * cf[2]; hi <- cf[1] + qt(0.975, dfm) * cf[2]
+    tr <- if (type == "cont") identity else exp
+    list(adj_measure = c(cont = "mean difference", bin = "odds ratio", log = "ratio of geometric means")[[type]],
+         adj = tr(unname(cf[1])), adj_lo = tr(unname(lo)), adj_hi = tr(unname(hi)), adj_p = unname(cf[4]), adj_df = dfm,
+         adj_covariates = covs)
+  }, error = function(e) list(error_adj = conditionMessage(e))))
+  t1rows[[length(t1rows) + 1]] <- r
+}
+pu <- sapply(t1rows, function(r) if (is.null(r$p)) NA else r$p)
+qv <- p.adjust(pu, method = "BH")
+for (i in seq_along(t1rows)) t1rows[[i]]$q <- qv[i]
+OUT$table1 <- list(tests = t1rows, n_tests = sum(!is.na(pu)), n_p05 = sum(pu < 0.05, na.rm = TRUE),
+                   n_q05 = sum(qv < 0.05, na.rm = TRUE),
+                   n_adj_p05 = sum(sapply(t1rows, function(r) !is.null(r$adj_p) && r$adj_p < 0.05)))
+T1COLS <- c("row", "comparator", "type", "n_smn", "n_comp", "diff", "diff_lo", "diff_hi", "p", "q", "adj", "adj_lo", "adj_hi", "adj_p")
+t1df <- do.call(rbind, lapply(t1rows, function(r) as.data.frame(lapply(setNames(T1COLS, T1COLS),
+  function(k) if (is.null(r[[k]])) NA else r[[k]]))))
+print(format(t1df, digits = 3), row.names = FALSE)
+write.csv(t1df, "table1_tests.csv", row.names = FALSE)
+cat("tests:", OUT$table1$n_tests, " P<0.05:", OUT$table1$n_p05, " q<0.05:", OUT$table1$n_q05,
+    " adjusted P<0.05:", OUT$table1$n_adj_p05, "\n")
+
 # ---------------------------------------------------------------- score contrasts (scores treated as fixed)
 contrast <- function(score, mask = rep(TRUE, nrow(d)), dummies = "g", extra = "") {
   ok <- coh & mask & !is.na(d[[score]]) & !is.na(d$race) &
