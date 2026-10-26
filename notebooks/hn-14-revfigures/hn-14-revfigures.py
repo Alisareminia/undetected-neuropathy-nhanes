@@ -408,10 +408,10 @@ def f1_arrow(ax, p0, p1):
 
 
 with mpl.rc_context({"font.family": [F1_FONT, "DejaVu Sans"], "text.color": F1K}):
-    fig = newfig(112)
+    fig = newfig(114)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0, WMM)
-    ax.set_ylim(112, 0)
+    ax.set_ylim(114, 0)
     ax.axis("off")
     x0, x1, gap_c, extra = 4.0, 180.0, 2.4, 3.6
     W = (x1 - x0 - 5 * gap_c - extra) / 6
@@ -455,7 +455,7 @@ with mpl.rc_context({"font.family": [F1_FONT, "DejaVu Sans"], "text.color": F1K}
     for k, g in enumerate(F1ORDER):
         x, c = xs[k], GC[g]
         f = F1[g]
-        ax.add_patch(Rectangle((x, ytop), W, 64.0, fc="white", ec=c, lw=1.2 if g == "D_hidden" else 0.55, zorder=1))
+        ax.add_patch(Rectangle((x, ytop), W, 66.0, fc="white", ec=c, lw=1.2 if g == "D_hidden" else 0.55, zorder=1))
         ax.add_patch(Rectangle((x, ytop), W, 8.6, fc=tint(c, 0.16), ec="none", zorder=1.5))
         ax.plot([x, x + W], [ytop + 8.6, ytop + 8.6], color=tint(c, 0.6), lw=0.5, zorder=1.6)
         ax.text(x + 1.4, ytop + 3.0, F1NAME[g], fontsize=6.3 if len(F1NAME[g]) < 19 else 5.8, fontweight="bold",
@@ -489,18 +489,22 @@ with mpl.rc_context({"font.family": [F1_FONT, "DejaVu Sans"], "text.color": F1K}
             on = q is not None and q > 0
             ax.text(cx, yt + 2.6, txt, ha="center", va="center", fontsize=5.6, fontweight="bold" if on else "normal",
                     color=F1K if on else F1LIGHT)
-        # glycemic status among adults with known status
-        ax.text(x + 1.4, ytop + 57.0, "Glycemic status, %", fontsize=4.8, color=F1GREY, va="center")
-        left, wb, yg_ = x + 1.4, W - 2.8, ytop + 58.6
+        # glycemic status among adults with known status: slim stacked bar, one-decimal shares in aligned columns below
+        ax.plot([x + 1.0, x + W - 1.0], [ytop + 55.3, ytop + 55.3], color=F1RULE, lw=0.4)
+        ax.text(x + 1.4, ytop + 57.4, "Glycemic status, %", fontsize=4.8, color=F1GREY, va="center")
+        left, wb, yg_ = x + 1.4, W - 2.8, ytop + 59.0
         for lab, col, key in F1GLY:
             q = f[key]["prop"]
-            ax.add_patch(Rectangle((left, yg_), wb * q, 3.4, fc=col, ec="white", lw=0.5, zorder=3))
-            if q >= 0.04:
-                ax.text(left + wb * q / 2, yg_ + 1.7, f"{q * 100:.0f}", ha="center", va="center",
-                        fontsize=5.0 if q >= 0.09 else 4.4, zorder=4, color="white" if col == "#a23b3b" else F1K)
+            ax.add_patch(Rectangle((left, yg_), wb * q, 2.3, fc=col, ec="white", lw=0.45, zorder=3))
             left += wb * q
-        ax.add_patch(Rectangle((x + 1.4, yg_), wb, 3.4, fc="none", ec="#8a8a8a", lw=0.35, zorder=5))
-    yk = ytop + 68.4
+        ax.add_patch(Rectangle((x + 1.4, yg_), wb, 2.3, fc="none", ec="#8a8a8a", lw=0.35, zorder=5))
+        gw = wb / 3
+        for j, (lab, col, key) in enumerate(F1GLY):
+            gx = x + 1.4 + gw * j
+            ax.add_patch(Rectangle((gx + 0.2, yg_ + 3.75), 1.25, 1.25, fc=col, ec="#8a8a8a", lw=0.3, zorder=3))
+            ax.text(gx + 1.95, yg_ + 4.4, f"{f[key]['prop'] * 100:.1f}", ha="left", va="center", fontsize=5.4,
+                    zorder=3)
+    yk = ytop + 70.4
     for k, (lab, col, _) in enumerate(F1GLY):
         ax.add_patch(Rectangle((xs[0] + k * 27, yk - 0.9), 2.4, 1.8, fc=col, ec="#8a8a8a", lw=0.3))
         ax.text(xs[0] + k * 27 + 3.2, yk, lab, fontsize=5.4, va="center")
@@ -511,7 +515,7 @@ LEGENDS["Fig1_flow"] = (
     "survey-weighted prevalence among US adults aged ≥40 years (95% CI) and deaths through 2019 among participants eligible "
     "for linkage. Body charts are shaded by the survey-weighted share of the group reporting pain or tingling at each site "
     "(hands and feet, front view; low back, back view), with the shares below; feet only, foot symptoms without hand "
-    "symptoms or low back pain. Glycemic status is among adults with known status. SMN, symptomatic, monofilament-normal.")
+    "symptoms or low back pain. Glycemic status is among adults with known status (HbA1c <5.7%, 5.7–6.4% and diabetes; percentages may not sum to 100.0 because of rounding). SMN, symptomatic, monofilament-normal.")
 
 # %% [markdown]
 # ## Figure 2 — Transfer test (a, score distributions; b, survey-weighted contrasts with pipeline-bootstrap uncertainty)
