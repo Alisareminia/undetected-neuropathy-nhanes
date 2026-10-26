@@ -614,7 +614,7 @@ LEGENDS["Fig2_transfer_test"] = (
     "monofilament-normal.")
 
 # %% [markdown]
-# ## Figure 3 — Biomarker profile (survey-weighted SMD heatmap with bootstrap CIs)
+# ## Figure 3 — Biomarker profile: SMN bars (a), bubble matrix of all groups (b), counts (c); bootstrap CIs
 
 # %%
 FPG = FPW[FPW.profile.isin(ORDER)]
@@ -623,98 +623,165 @@ wlo = FPG.pivot(index="profile", columns="feature", values="lo")
 whi = FPG.pivot(index="profile", columns="feature", values="hi")
 sigm = (wlo > 0) | (whi < 0)
 cols = wide.loc["D_hidden"].sort_values(ascending=False).index.tolist()
-hm_rows = ["C_painful_PN", "B_painless_PN", "D_hidden", "F_hands_only", "E_backpain_ctrl"]
-DIV = LinearSegmentedColormap.from_list("div", ["#2E4374", "#7D8FBF", "#F6F6F4", "#E79A8A", "#A8321F"])
-norm = TwoSlopeNorm(vmin=-0.6, vcenter=0, vmax=0.6)
-fig = newfig(72)
 nc = len(cols)
-HX, HW = 32, 126
-cw = HW / nc
-axt = axmm(fig, HX, 8, HW, 14)
-dv = wide.loc["D_hidden", cols].values
-axt.bar(np.arange(nc) + 0.5, dv, width=0.62, color=[DIV(norm(np.clip(v, -0.6, 0.6))) for v in dv], edgecolor="none")
-axt.errorbar(np.arange(nc) + 0.5, dv, yerr=[dv - wlo.loc["D_hidden", cols].values, whi.loc["D_hidden", cols].values - dv],
-             fmt="none", ecolor=INK, elinewidth=0.4, capsize=0)
-axt.axhline(0, color=INK, lw=0.5)
-axt.set_xlim(0, nc)
-axt.set_xticks([])
-axt.spines["bottom"].set_visible(False)
-axt.set_ylabel("SMN", labelpad=2)
-ymax = max(0.5, float(np.nanmax(whi.loc["D_hidden", cols])) + 0.05)
-ymin = min(-0.4, float(np.nanmin(wlo.loc["D_hidden", cols])) - 0.05)
-axt.set_ylim(ymin, ymax)
-axt.set_yticks([-0.3, 0, 0.3])
-ptitle(axt, "Adjusted standardized mean difference vs reference (SMD)")
-axs = axmm(fig, HX, 23.6, HW, 2.0)
-for j, f in enumerate(cols):
-    axs.add_patch(Rectangle((j + 0.06, 0), 0.88, 1, facecolor=DOMC.get(f, INK3), edgecolor="none"))
-axs.set_xlim(0, nc)
-axs.set_ylim(0, 1)
-axs.axis("off")
-ftext(fig, HX - 1.5, 24.6, "Domain", ha="right", va="center", fontsize=5.4, color=INK2)
-hh = cw * len(hm_rows)
-ax = axmm(fig, HX, 27, HW, hh)
-ri = hm_rows[::-1].index("D_hidden")
-ax.axhspan(ri, ri + 1, color=tint(C_HID, 0.12), lw=0, zorder=0)
-for i, g in enumerate(hm_rows[::-1]):
-    ax.plot([0.5, nc - 0.5], [i + 0.5, i + 0.5], color=GRID, lw=0.4, zorder=1)
+F3ROWS = ["C_painful_PN", "B_painless_PN", "D_hidden", "F_hands_only", "E_backpain_ctrl"]
+F3K, F3K2, F3GREY, F3LIGHT, F3RULE, F3FAINT = "#111111", "#333333", "#6b6b6b", "#a3a3a3", "#cfcfcf", "#ececec"
+# ColorBrewer RdBu (7 classes), print-safe diverging scale
+RDBU = LinearSegmentedColormap.from_list("rdbu", ["#2166ac", "#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62",
+                                                  "#b2182b"])
+F3NORM = TwoSlopeNorm(vmin=-0.6, vcenter=0, vmax=0.6)
+F3DOM = {"Body size": "#8c6d8a", "Glucose & lipids": "#c2a25a", "Liver & protein": "#6f8a5c",
+         "Blood count & inflammation": "#8a6f5e", "Kidney & electrolytes": "#8a959c", "Blood pressure": "#c9a3ae"}
+F3DNAME = {f: d for d, _, fs in DOMAINS for f in fs}
+F3N = {g: PREV[g]["n"] for g in F3ROWS + ["A_reference"]}
+F3NSIG = {g: int(sigm.loc[g, cols].sum()) for g in F3ROWS}
+print("biomarkers with 95% CI excluding 0:", F3NSIG)
+MINUS = "−"
+
+
+def f3col(v):
+    return RDBU(F3NORM(np.clip(v, -0.6, 0.6)))
+
+
+def f3r(v):
+    return 0.10 + 0.34 * min(abs(v) / 0.5, 1.0)
+
+
+with mpl.rc_context({"font.family": [F1_FONT, "DejaVu Sans"], "text.color": F3K, "axes.edgecolor": F3K,
+                     "xtick.color": F3K, "ytick.color": F3K, "xtick.labelcolor": F3K, "ytick.labelcolor": F3K}):
+    nr = len(F3ROWS)
+    HX, HW = 41, 118
+    cu, rh = HW / nc, 3.5
+    t_a, h_a = 8.0, 17.5
+    y_b = t_a + h_a + 5.6
+    y_dom = y_b + 1.7
+    t_b = y_dom + 2.5
+    hh = rh * nr
+    FH = t_b + hh + 19.2
+    xr = HX + HW + 6.5
+    wr = WMM - xr - 2.5
+    fig = newfig(FH)
+    cv = fig.add_axes([0, 0, 1, 1], zorder=-1)
+    cv.set_xlim(0, WMM)
+    cv.set_ylim(FH, 0)
+    cv.axis("off")
+    sig_smn = sigm.loc["D_hidden", cols].values
+
+    def head(x, y, lt, title):
+        cv.text(x, y, lt, fontsize=8.5, fontweight="bold", va="baseline", ha="left")
+        cv.text(x + 4.2, y, title, fontsize=6.6, fontweight="bold", va="baseline", ha="left")
+
+    # column guides: biomarkers whose SMN 95% CI excludes 0, through panels a and b
+    for j in np.where(sig_smn)[0]:
+        cv.add_patch(Rectangle((HX + j * cu, t_a + 1.0), cu, t_b + hh - t_a - 1.0, fc="#f3f3f3", ec="none", zorder=0))
+
+    # a — SMN versus reference
+    head(2.0, 4.2, "a", f"SMN group (n = {F3N['D_hidden']}) versus reference (n = {F3N['A_reference']:,})")
+    ax = axmm(fig, HX, t_a, HW, h_a)
+    ax.patch.set_alpha(0)
+    v = wide.loc["D_hidden", cols].values
+    lo, hi = wlo.loc["D_hidden", cols].values, whi.loc["D_hidden", cols].values
+    xc = np.arange(nc) + 0.5
+    for yv in (-0.4, -0.2, 0.2, 0.4):
+        ax.axhline(yv, color=F3FAINT, lw=0.35, zorder=0)
+    ax.bar(xc, v, width=0.64, color=[f3col(t) if s else "#e3e3e3" for t, s in zip(v, sig_smn)], edgecolor="none", zorder=2)
+    for x, l_, h_, s in zip(xc, lo, hi, sig_smn):
+        c = F3K2 if s else F3LIGHT
+        ax.vlines(x, l_, h_, color=c, lw=0.45, zorder=3)
+        ax.hlines([l_, h_], x - 0.13, x + 0.13, color=c, lw=0.45, zorder=3)
+    ax.axhline(0, color=F3K, lw=0.5, zorder=4)
+    ax.set_xlim(0, nc)
+    ax.set_ylim(-0.48, 0.6)
+    ax.set_xticks([])
+    ax.spines["bottom"].set_visible(False)
+    ax.set_yticks([-0.4, -0.2, 0, 0.2, 0.4])
+    ax.set_yticklabels([f"{t:g}".replace("-", MINUS) for t in (-0.4, -0.2, 0, 0.2, 0.4)])
+    ax.set_ylabel("SMD (95% CI)", fontsize=5.8, labelpad=2)
+    ax.tick_params(axis="y", labelsize=5.4)
+
+    # domain strip
     for j, f in enumerate(cols):
-        v = float(wide.loc[g, f])
-        r = 0.1 + 0.36 * min(abs(v) / 0.5, 1.0)
-        sig = bool(sigm.loc[g, f])
-        ax.add_patch(Circle((j + 0.5, i + 0.5), r, facecolor=DIV(norm(np.clip(v, -0.6, 0.6))), edgecolor=INK if sig else "none",
-                            lw=0.45, zorder=3))
-ax.add_patch(Rectangle((0, ri), nc, 1, fill=False, edgecolor=C_HID, lw=0.9, zorder=5, clip_on=False))
-ax.set_xlim(0, nc)
-ax.set_ylim(0, len(hm_rows))
-ax.set_xticks(np.arange(nc) + 0.5)
-ax.set_xticklabels([NM.get(f, f) for f in cols], rotation=90, fontsize=5.4)
-ax.set_yticks(np.arange(len(hm_rows)) + 0.5)
-ax.set_yticklabels([NAME[g] for g in hm_rows[::-1]], fontsize=5.8)
-for t, g in zip(ax.get_yticklabels(), hm_rows[::-1]):
-    if g == "D_hidden":
-        t.set_fontweight("bold")
-ax.tick_params(length=0)
-for sp in ax.spines.values():
-    sp.set_visible(False)
-axr = axmm(fig, HX + HW + 4, 27, 16, hh)
-cnt = [int(sigm.loc[g, cols].sum()) for g in hm_rows[::-1]]
-axr.barh(np.arange(len(hm_rows)) + 0.5, cnt, height=0.62, color=[GC[g] for g in hm_rows[::-1]])
-for i, c in enumerate(cnt):
-    axr.text(c + 0.6, i + 0.5, str(c), va="center", fontsize=5.3)
-axr.set_ylim(0, len(hm_rows))
-axr.set_yticks([])
-axr.spines["left"].set_visible(False)
-axr.set_xlim(0, nc * 0.75)
-axr.set_xticks([0, 10, 20])
-axr.set_xlabel("n, CI ≠ 0", labelpad=1.5)
-cbx = axmm(fig, HX + HW + 4, 11, 16, 1.6)
-cb = mpl.colorbar.ColorbarBase(cbx, cmap=DIV, norm=norm, orientation="horizontal", ticks=[-0.5, 0, 0.5])
-cb.outline.set_linewidth(0.4)
-cbx.tick_params(labelsize=5.2, length=1.5)
-cbx.set_title("SMD", fontsize=5.3, pad=2, loc="left")
-axk = axmm(fig, HX + HW + 4, 15, 16, 6)
-axk.set_xlim(0, 16)
-axk.set_ylim(0, 6)
-axk.set_aspect("equal")
-axk.axis("off")
-for xk, vk in [(2.2, 0.1), (6.6, 0.3), (11.4, 0.5)]:
-    rk = (0.1 + 0.36 * min(vk / 0.5, 1)) * cw
-    axk.add_patch(Circle((xk, 3.9), rk, facecolor="#cfd2d7", edgecolor=INK, lw=0.45))
-    axk.text(xk, 0.1, f"{vk:g}", ha="center", va="bottom", fontsize=4.8, color=INK2)
-axleg = axmm(fig, HX, 27 + hh + 17, HW, 3)
-axleg.axis("off")
-axleg.legend(handles=[Line2D([], [], marker="s", color=c, lw=0, ms=3.6, label=d) for d, c, _ in DOMAINS], loc="center",
-             ncol=6, fontsize=5.3, handletextpad=0.2, columnspacing=1.2, borderaxespad=0)
-save(fig, "Fig3_biomarker_profile")
-plt.show()
+        cv.add_patch(Rectangle((HX + (j + 0.1) * cu, y_dom), 0.8 * cu, 1.3, fc=F3DOM[F3DNAME[f]], ec="none"))
+    cv.text(HX - 6.5, y_dom + 0.65, "Domain", ha="right", va="center", fontsize=5.3, color=F3GREY)
+
+    # b — all groups versus reference
+    head(2.0, y_b, "b", "All groups versus reference")
+    cv.text(HX - 3.6, y_dom + 0.65, "n", ha="right", va="center", fontsize=5.4, color=F3GREY, style="italic")
+    axb = axmm(fig, HX, t_b, HW, hh)
+    axb.patch.set_alpha(0)
+    axb.set_xlim(0, nc)
+    axb.set_ylim(nr, 0)
+    i_s = F3ROWS.index("D_hidden")
+    for i in range(nr):
+        axb.plot([0.5, nc - 0.5], [i + 0.5, i + 0.5], color=F3FAINT, lw=0.35, zorder=0)
+    for i, g in enumerate(F3ROWS):
+        for j, f in enumerate(cols):
+            vv, s = float(wide.loc[g, f]), bool(sigm.loc[g, f])
+            r = f3r(vv)
+            axb.add_patch(mpl.patches.Ellipse((j + 0.5, i + 0.5), 2 * r, 2 * r * cu / rh, fc=f3col(vv),
+                                              ec=F3K2 if s else "none", lw=0.45, alpha=1 if s else 0.45, zorder=3))
+    for yy in (i_s, i_s + 1):
+        axb.plot([0, nc], [yy, yy], color=F3K, lw=0.55, zorder=5, clip_on=False)
+    axb.set_xticks(xc)
+    axb.set_xticklabels([NM[f] for f in cols], rotation=90, fontsize=5.4)
+    axb.tick_params(axis="x", length=0, pad=2.0)
+    axb.set_yticks([])
+    for sp in axb.spines.values():
+        sp.set_visible(False)
+    for i, g in enumerate(F3ROWS):
+        y = t_b + (i + 0.5) * rh
+        bold = g == "D_hidden"
+        cv.text(HX - 10.5, y, NAME[g], ha="right", va="center", fontsize=6.0, fontweight="bold" if bold else "normal")
+        cv.text(HX - 3.6, y, f"{F3N[g]:,}", ha="right", va="center", fontsize=5.5, color=F3K if bold else F3GREY,
+                fontweight="bold" if bold else "normal")
+        cv.add_patch(Rectangle((HX - 2.7, y - 0.7), 1.4, 1.4, fc=GC[g], ec="none"))
+
+    # c — number of biomarkers whose 95% CI excludes 0
+    cv.text(xr - 4.2, y_b, "c", fontsize=8.5, fontweight="bold", va="baseline", ha="left")
+    cv.text(xr, y_b, "95% CI excludes 0", fontsize=6.0, fontweight="bold", va="baseline")
+    for i, g in enumerate(F3ROWS):
+        y = t_b + (i + 0.5) * rh
+        n = F3NSIG[g]
+        cv.add_patch(Rectangle((xr, y - 0.95), wr - 7.5, 1.9, fc="#f2f2f2", ec="none"))
+        cv.add_patch(Rectangle((xr, y - 0.95), (wr - 7.5) * n / nc, 1.9, fc=GC[g], ec="none"))
+        cv.text(WMM - 2.5, y, f"{n}/{nc}", ha="right", va="center", fontsize=5.7,
+                fontweight="bold" if g == "D_hidden" else "normal")
+
+    # keys
+    cv.text(xr, t_a + 0.6, "SMD versus reference", fontsize=5.5, va="baseline")
+    cbx = axmm(fig, xr, t_a + 1.6, wr, 1.5)
+    cbx._colorbar = True
+    cb = mpl.colorbar.ColorbarBase(cbx, cmap=RDBU, norm=F3NORM, orientation="horizontal", ticks=[-0.5, 0, 0.5])
+    cbx.set_xticklabels([f"{MINUS}0.5", "0", "0.5"])
+    cbx.tick_params(labelsize=5.0, length=1.3, width=0.4, pad=1)
+    cb.outline.set_linewidth(0.4)
+    ky = t_a + 8.6
+    for xk, vk in [(1.2, 0.1), (5.2, 0.3), (10.0, 0.5)]:
+        cv.add_patch(Circle((xr + xk, ky + 1.6), f3r(vk) * cu, fc="#cfcfcf", ec="none"))
+        cv.text(xr + xk, ky + 4.4, f"{vk:g}", ha="center", va="center", fontsize=4.9, color=F3GREY)
+    cv.text(xr + 13.6, ky + 1.6, "|SMD|", va="center", fontsize=5.0, color=F3GREY)
+    sy = ky + 7.6
+    cv.add_patch(Circle((xr + 1.2, sy), 0.95, fc="#ef8a62", ec=F3K2, lw=0.45))
+    cv.text(xr + 3.0, sy, "95% CI excludes 0", va="center", fontsize=5.0)
+    cv.add_patch(Circle((xr + 1.2, sy + 2.8), 0.95, fc="#ef8a62", ec="none", alpha=0.45))
+    cv.text(xr + 3.0, sy + 2.8, "95% CI includes 0", va="center", fontsize=5.0)
+
+    # domain legend
+    lx = HX
+    for d, _, _ in DOMAINS:
+        cv.add_patch(Rectangle((lx, FH - 2.65), 2.2, 1.3, fc=F3DOM[d], ec="none"))
+        cv.text(lx + 3.0, FH - 2.0, d, va="center", fontsize=5.4)
+        lx += 3.0 + len(d) * 0.98 + 4.0
+    save(fig, "Fig3_biomarker_profile")
+    plt.show()
 LEGENDS["Fig3_biomarker_profile"] = (
     "**Figure 3 | Biomarker profiles of the six groups.** Survey-weighted standardized mean difference (SMD) of each of "
     f"{nc} routine clinical and laboratory measures versus the reference group, after survey-weighted adjustment for age, sex "
-    "and race and ethnicity. Top, SMN group with 95% CI; colored strip, biomarker domain; bubble heatmap, all groups, "
-    "biomarkers ordered by the SMN group (color, SMD; circle area, |SMD|; outlined, 95% CI excludes 0); right, number of "
-    "biomarkers whose 95% CI excludes 0. CIs are bias-corrected percentile intervals from the pipeline bootstrap (Fig. 2). SMN, symptomatic, "
-    "monofilament-normal.")
+    "and race and ethnicity; biomarkers are ordered by the SMN estimate. **a**, SMN group with 95% CI; colored bars and grey "
+    "shading mark biomarkers whose 95% CI excludes 0. **b**, All groups (n, group size): circle color, SMD; circle area, "
+    "|SMD|; outlined circles, 95% CI excludes 0; faded circles, 95% CI includes 0. The strip above the matrix gives the "
+    "biomarker domain. **c**, Number of biomarkers whose 95% CI excludes 0. CIs are bias-corrected percentile intervals from "
+    "the pipeline bootstrap (Fig. 2). SMN, symptomatic, monofilament-normal.")
 
 # %% [markdown]
 # ## Figure 4 — Mortality
