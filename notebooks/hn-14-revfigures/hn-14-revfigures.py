@@ -324,116 +324,194 @@ def ci_txt(e, lo, hi, d=2):
 
 
 # %% [markdown]
-# ## Figure 1 — STROBE participant flow
+# ## Figure 1 — Participant flow (a) and the six groups (b): pain or tingling sites on body charts, glycemic status
+# Shares are survey-weighted estimates from HN-12 (`fig1`); glycemic status is among adults with known status.
+# Body charts are clinical pain-drawing outlines (front view: hands, feet; back view: low back).
 
 # %%
 FL = H11["flow"]
-FIG1_H = 4 + 4 * 15.0 + 8.0 + 4 + 16.0 + 29 + 3
-fig = newfig(FIG1_H)
-ax = fig.add_axes([0, 0, 1, 1])
-ax.set_xlim(0, WMM)
-ax.set_ylim(FIG1_H, 0)
-ax.axis("off")
+F1 = H12["fig1"]
+F1_FONT = SANS
+try:  # Arial-metric font (Arimo) for this figure, as in the co-author-approved draft
+    for w in ["400-normal", "700-normal", "400-italic"]:
+        p = f"fonts/Arimo-{w}.ttf"
+        if not os.path.exists(p):
+            urllib.request.urlretrieve(f"https://cdn.jsdelivr.net/fontsource/fonts/arimo@latest/latin-{w}.ttf", p)
+        font_manager.fontManager.addfont(p)
+    F1_FONT = font_manager.FontProperties(fname="fonts/Arimo-400-normal.ttf").get_name()
+except Exception as e:
+    print("Figure 1 font fallback:", e)
+F1K, F1GREY, F1LIGHT, F1RULE = "#1a1a1a", "#5c5c5c", "#9a9a9a", "#cfcfcf"
+F1GLY = [("HbA1c <5.7%", "#e4e4e4", "gly_normal"), ("HbA1c 5.7–6.4%", "#d9b45a", "gly_prediabetes"),
+         ("Diabetes", "#a23b3b", "gly_diabetes")]
+F1NAME = {"D_hidden": "SMN", "E_backpain_ctrl": "Back pain only", "F_hands_only": "Hand symptoms only",
+          "A_reference": "Reference", "C_painful_PN": "Insensate with symptoms", "B_painless_PN": "Insensate, no symptoms"}
+F1ROLE = {"D_hidden": "Study group", "E_backpain_ctrl": "Negative control", "F_hands_only": "Negative control",
+          "A_reference": "Training, negative", "C_painful_PN": "Comparison group", "B_painless_PN": "Training, positive"}
+F1ORDER = ["D_hidden", "E_backpain_ctrl", "F_hands_only", "A_reference", "C_painful_PN", "B_painless_PN"]
+F1EXCL = ["aged <40 years", "not examined", "no valid monofilament", "symptom question\nunanswered"]
+F1STEPS = [("NHANES 1999–2004", FL["nhanes_1999_2004"], FL["nhanes_1999_2004"] - FL["aged_40_plus"]),
+           ("Aged ≥40 years", FL["aged_40_plus"], FL["aged_40_not_examined"]),
+           ("Examined", FL["examined_40_plus"], FL["no_valid_monofilament"]),
+           ("Valid monofilament", FL["valid_monofilament"], FL["no_symptom_answer"]),
+           ("Included", FL["included"], None)]
+N_NORM = sum(NG[g] for g in F1ORDER[:4])
+N_INS = NG["C_painful_PN"] + NG["B_painless_PN"]
+
+# body outline: right half from the neck round the arm, hand, flank, leg and foot to the crotch (unit height), mirrored
+BODY_HALF = [(0.028, 0.118), (0.034, 0.145), (0.085, 0.160), (0.122, 0.172), (0.142, 0.192), (0.150, 0.230), (0.156, 0.300),
+             (0.166, 0.370), (0.176, 0.440), (0.184, 0.482), (0.196, 0.505), (0.205, 0.540), (0.200, 0.572), (0.186, 0.585),
+             (0.170, 0.572), (0.163, 0.540), (0.158, 0.486), (0.148, 0.430), (0.136, 0.360), (0.124, 0.290), (0.112, 0.240),
+             (0.104, 0.300), (0.096, 0.370), (0.098, 0.430), (0.108, 0.490), (0.106, 0.560), (0.098, 0.650), (0.090, 0.760),
+             (0.082, 0.860), (0.074, 0.925), (0.086, 0.950), (0.094, 0.972), (0.074, 0.985), (0.044, 0.983), (0.034, 0.960),
+             (0.036, 0.925), (0.040, 0.860), (0.040, 0.760), (0.034, 0.650), (0.020, 0.560), (0.0, 0.528)]
+BODY_HAND = [(0.184, 0.482), (0.196, 0.505), (0.205, 0.540), (0.200, 0.572), (0.186, 0.585), (0.170, 0.572), (0.163, 0.540),
+             (0.158, 0.486)]
+BODY_FOOT = [(0.074, 0.925), (0.086, 0.950), (0.094, 0.972), (0.074, 0.985), (0.044, 0.983), (0.034, 0.960), (0.036, 0.925)]
 
 
-def fbox(x, y, w, h, lines, fc="white", ec=INK, lw=0.6, bold_first=True, fs=6.0, align="center"):
-    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=0.8", facecolor=fc, edgecolor=ec, lw=lw,
-                                zorder=2))
-    n = len(lines)
-    lh = 3.0
-    y0 = y + h / 2 - (n - 1) * lh / 2
-    for i, t in enumerate(lines):
-        ax.text(x + (w / 2 if align == "center" else 1.6), y0 + i * lh, t, ha=align, va="center", fontsize=fs,
-                fontweight="bold" if (i == 0 and bold_first) else "normal", color=INK, zorder=3)
+def chaikin(pts, n=3, closed=True):
+    p = np.asarray(pts, float)
+    for _ in range(n):
+        q = []
+        for i in (range(len(p)) if closed else range(len(p) - 1)):
+            a, b = p[i], p[(i + 1) % len(p)]
+            q += [0.75 * a + 0.25 * b, 0.25 * a + 0.75 * b]
+        p = np.array(q)
+    return p
 
 
-def varrow(x, y0, y1):
-    ax.add_patch(FancyArrowPatch((x, y0), (x, y1), arrowstyle="-|>,head_length=2.4,head_width=1.4", color=INK2, lw=0.6,
-                                 shrinkA=0, shrinkB=0, zorder=1))
+BODY = chaikin(np.vstack([np.array(BODY_HALF), np.array(BODY_HALF)[::-1] * [-1, 1]]))
 
 
-def harrow(x0, x1, y):
-    ax.add_patch(FancyArrowPatch((x0, y), (x1, y), arrowstyle="-|>,head_length=2.4,head_width=1.4", color=INK2, lw=0.6,
-                                 shrinkA=0, shrinkB=0, zorder=1))
+def draw_body(ax, cx, top, H, view, fills, edge="#3a3a3a", lw=0.45, z=3):
+    tr = lambda p: np.column_stack([cx + p[:, 0] * H, top + p[:, 1] * H])
+    ax.add_patch(mpl.patches.Polygon(tr(BODY), closed=True, fc="white", ec="none", zorder=z))
+    if view == "front":
+        for sgn in (1, -1):
+            for key, pts in (("hands", BODY_HAND), ("feet", BODY_FOOT)):
+                if fills.get(key):
+                    ax.add_patch(mpl.patches.Polygon(tr(chaikin(np.array(pts) * [sgn, 1], n=2)), closed=True,
+                                                     fc=fills[key], ec="none", zorder=z + 1))
+    else:
+        if fills.get("low_back"):
+            band = np.array([(-0.100, 0.395), (0.100, 0.395), (0.104, 0.475), (-0.104, 0.475)])
+            ax.add_patch(mpl.patches.Polygon(tr(band), closed=True, fc=fills["low_back"], ec="none", zorder=z + 1))
+        ax.plot([cx, cx], [top + 0.17 * H, top + 0.50 * H], color=edge, lw=lw * 0.6, alpha=0.6, zorder=z + 2)
+    ax.add_patch(mpl.patches.Polygon(tr(BODY), closed=True, fc="none", ec=edge, lw=lw, zorder=z + 2, joinstyle="round"))
+    ax.add_patch(mpl.patches.Ellipse((cx, top + 0.062 * H), 0.092 * H, 0.118 * H, fc="white", ec=edge, lw=lw, zorder=z + 2))
 
 
-MX, MW, BH, STEP = 40, 58, 8.0, 15.0
-cx = MX + MW / 2
-steps = [(["NHANES 1999–2004 participants", f"n = {FL['nhanes_1999_2004']:,}"],
-          ["Aged <40 years", f"n = {FL['nhanes_1999_2004'] - FL['aged_40_plus']:,}"]),
-         (["Aged ≥40 years", f"n = {FL['aged_40_plus']:,}"],
-          ["Not examined in the mobile examination center", f"n = {FL['aged_40_not_examined']:,}"]),
-         (["Examined", f"n = {FL['examined_40_plus']:,}"],
-          ["No valid 10-g monofilament result for either foot", f"n = {FL['no_valid_monofilament']:,}"]),
-         (["Valid monofilament examination", f"n = {FL['valid_monofilament']:,}"],
-          ["Question on hand or foot pain or tingling", "not answered", f"n = {FL['no_symptom_answer']:,}"]),
-         (["Included", f"n = {FL['included']:,}"], None)]
-for i, (main_, side) in enumerate(steps):
-    y = 4 + i * STEP
-    last = i == len(steps) - 1
-    fbox(MX, y, MW, BH, main_, fc="#f5f5f5" if last else "white", lw=0.9 if last else 0.6)
-    if side:
-        varrow(cx, y + BH, y + STEP)
-        ym = y + BH + (STEP - BH) / 2
-        harrow(cx, 112, ym)
-        hb = 3.0 * len(side) + 2.2
-        fbox(112, ym - hb / 2, 66, hb, side, ec=INK3, bold_first=False, fs=5.6, align="left")
-y = 4 + (len(steps) - 1) * STEP + BH
-yb = y + 4
-n_norm = sum(NG[g] for g in ["D_hidden", "E_backpain_ctrl", "F_hands_only", "A_reference"])
-n_ins = NG["C_painful_PN"] + NG["B_painless_PN"]
-XN0, XN1, XI0, XI1 = 4.5, 119, 125, 179
-ax.plot([cx, cx], [y, yb], color=INK2, lw=0.6, zorder=1)
-ax.plot([(XN0 + XN1) / 2, (XI0 + XI1) / 2], [yb, yb], color=INK2, lw=0.6, zorder=1)
-for xa, xb in [(XN0, XN1), (XI0, XI1)]:
-    varrow((xa + xb) / 2, yb, yb + 3.0)
-fbox(XN0, yb + 3.0, XN1 - XN0, 7.5, ["Monofilament normal (all sites felt)", f"n = {n_norm:,}"], fc="#fafafa")
-fbox(XI0, yb + 3.0, XI1 - XI0, 7.5, ["≥1 insensate site", f"n = {n_ins:,}"], fc="#fafafa")
-ybar = yb + 13.5
-yg = yb + 16.0
-GDEF = {"D_hidden": ("SMN", "Foot pain or tingling", "Study group"),
-        "E_backpain_ctrl": ("Back pain only", "Low back pain; no foot or hand symptoms", "Negative control"),
-        "F_hands_only": ("Hand symptoms only", "Hand pain or tingling; no foot symptoms", "Negative control"),
-        "A_reference": ("Reference", "None of these symptoms", "Model training (negative)"),
-        "C_painful_PN": ("Insensate with symptoms", "Foot pain or tingling", "Comparison group"),
-        "B_painless_PN": ("Insensate, no symptoms", "No foot pain or tingling", "Model training (positive)")}
-gap = 1.5
-gwn = (XN1 - XN0 - 3 * gap) / 4
-gwi = (XI1 - XI0 - gap) / 2
-pos = {g: (XN0 + k * (gwn + gap), gwn) for k, g in enumerate(["D_hidden", "E_backpain_ctrl", "F_hands_only", "A_reference"])}
-pos.update({g: (XI0 + k * (gwi + gap), gwi) for k, g in enumerate(["C_painful_PN", "B_painless_PN"])})
-for xa, xb, gs in [(XN0, XN1, ["D_hidden", "A_reference"]), (XI0, XI1, ["C_painful_PN", "B_painless_PN"])]:
-    ax.plot([(xa + xb) / 2] * 2, [yb + 10.5, ybar], color=INK3, lw=0.5, zorder=1)
-    ax.plot([pos[gs[0]][0] + pos[gs[0]][1] / 2, pos[gs[1]][0] + pos[gs[1]][1] / 2], [ybar, ybar], color=INK3, lw=0.5, zorder=1)
-for g, (x0, w_) in pos.items():
-    xm = x0 + w_ / 2
-    ax.plot([xm, xm], [ybar, yg], color=INK3, lw=0.5, zorder=1)
-    nm, df_, role = GDEF[g]
-    p = PREV[g]
-    c = GC[g]
-    ax.add_patch(FancyBboxPatch((x0, yg), w_, 29, boxstyle="round,pad=0,rounding_size=0.8", facecolor=tint(c, 0.12), edgecolor=c,
-                                lw=1.3 if g == "D_hidden" else 0.6, zorder=2))
-    ax.text(xm, yg + 3.3, nm, ha="center", va="center", fontsize=6.0, fontweight="bold", color=INK, zorder=3)
-    ax.text(xm, yg + 8.0, "\n".join(textwrap.wrap(df_, 24)), ha="center", va="center", fontsize=5.0, color=INK, zorder=3,
-            linespacing=1.15)
-    ax.text(xm, yg + 13.6, f"n = {NG[g]:,}", ha="center", va="center", fontsize=5.8, color=INK, zorder=3)
-    ax.text(xm, yg + 17.4, f"{p['prop'] * 100:.1f}% ({p['lo'] * 100:.1f}–{p['hi'] * 100:.1f})", ha="center", va="center",
-            fontsize=5.5, color=INK, zorder=3)
-    km_ = H12["km_n"][g]
-    ax.text(xm, yg + 21.4, f"Died by 2019: {km_['deaths']:,} / {km_['n']:,}", ha="center", va="center", fontsize=5.2,
-            color=INK, zorder=3)
-    ax.text(xm, yg + 25.4, role, ha="center", va="center", fontsize=5.2, color=INK, style="italic", zorder=3)
-FIG1_BOTTOM = yg + 29
-fs_share = PREV["share_of_foot_symptoms"]
-save(fig, "Fig1_flow")
-plt.show()
+def f1_arrow(ax, p0, p1):
+    ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle="-|>,head_length=1.7,head_width=0.9", color=F1K, lw=0.45, shrinkA=0,
+                                 shrinkB=0, zorder=1))
+
+
+with mpl.rc_context({"font.family": [F1_FONT, "DejaVu Sans"], "text.color": F1K}):
+    fig = newfig(112)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, WMM)
+    ax.set_ylim(112, 0)
+    ax.axis("off")
+    x0, x1, gap_c, extra = 4.0, 180.0, 2.4, 3.6
+    W = (x1 - x0 - 5 * gap_c - extra) / 6
+    xs = [x0 + k * (W + gap_c) + (extra if k >= 4 else 0) for k in range(6)]
+    # a: flow on the same grid as the cards
+    y0, bh, gap = 4.0, 8.0, 8.0
+    bw = (x1 - x0 - 4 * gap) / 5
+    for i, (t, n, en) in enumerate(F1STEPS):
+        x = x0 + i * (bw + gap)
+        last = i == 4
+        ax.add_patch(Rectangle((x, y0), bw, bh, fc="#f4f4f4" if last else "white", ec=F1K, lw=0.9 if last else 0.45,
+                               zorder=2))
+        ax.text(x + bw / 2, y0 + 2.7, t, ha="center", va="center", fontsize=6.0, fontweight="bold" if last else "normal",
+                zorder=3)
+        ax.text(x + bw / 2, y0 + 5.6, f"n = {n:,}", ha="center", va="center", fontsize=6.0, zorder=3)
+        if en is not None:
+            xm = x + bw + gap / 2
+            f1_arrow(ax, (x + bw, y0 + bh / 2), (x + bw + gap, y0 + bh / 2))
+            ax.plot([xm, xm], [y0 + bh / 2, y0 + bh + 2.2], color=F1LIGHT, lw=0.45, zorder=1)
+            ax.text(xm, y0 + bh + 3.3, f"Excluded, n = {en:,}", ha="center", va="center", fontsize=5.0)
+            ax.text(xm, y0 + bh + 5.6, F1EXCL[i], ha="center", va="top", fontsize=5.0, color=F1GREY, linespacing=1.1)
+    xi, yb = x0 + 4 * (bw + gap) + bw / 2, y0 + bh
+    ytop = 39.0
+    xn, xin = (xs[0] + xs[3] + W) / 2, (xs[4] + xs[5] + W) / 2
+    ys = yb + 13.5
+    ax.plot([xi, xi], [yb, ys], color=F1K, lw=0.45)
+    ax.plot([xn, max(xin, xi)], [ys, ys], color=F1K, lw=0.45)
+    for xm, a, b, lab, bw_ in [(xn, xs[0], xs[3] + W, f"Monofilament normal (all sites felt), n = {N_NORM:,}", 62),
+                               (xin, xs[4], xs[5] + W, f"≥1 insensate site, n = {N_INS:,}", 40)]:
+        f1_arrow(ax, (xm, ys), (xm, ys + 2.0))
+        ax.add_patch(Rectangle((xm - bw_ / 2, ys + 2.0), bw_, 5.0, fc="white", ec=F1K, lw=0.45, zorder=2))
+        ax.text(xm, ys + 4.5, lab, ha="center", va="center", fontsize=5.9, zorder=3)
+        yl = ytop - 3.2
+        ax.plot([xm, xm], [ys + 7.0, yl], color=F1K, lw=0.45)
+        ax.plot([a + W / 2, b - W / 2], [yl, yl], color=F1K, lw=0.45)
+        for x in [x for x in xs if a - 0.1 <= x <= b]:
+            f1_arrow(ax, (x + W / 2, yl), (x + W / 2, ytop))
+    letter(fig, 0, 1.5, "a")
+    letter(fig, 0, ytop, "b")
+    # b: one card per group
+    for k, g in enumerate(F1ORDER):
+        x, c = xs[k], GC[g]
+        f = F1[g]
+        ax.add_patch(Rectangle((x, ytop), W, 64.0, fc="white", ec=c, lw=1.2 if g == "D_hidden" else 0.55, zorder=1))
+        ax.add_patch(Rectangle((x, ytop), W, 8.6, fc=tint(c, 0.16), ec="none", zorder=1.5))
+        ax.plot([x, x + W], [ytop + 8.6, ytop + 8.6], color=tint(c, 0.6), lw=0.5, zorder=1.6)
+        ax.text(x + 1.4, ytop + 3.0, F1NAME[g], fontsize=6.3 if len(F1NAME[g]) < 19 else 5.8, fontweight="bold",
+                va="center")
+        ax.text(x + 1.4, ytop + 6.1, F1ROLE[g], fontsize=5.0, color=F1GREY, va="center")
+        p = PREV[g]
+        rows = [("n", f"{NG[g]:,}"), ("Prev., %", f"{p['prop'] * 100:.1f} ({p['lo'] * 100:.1f}–{p['hi'] * 100:.1f})"),
+                ("Died by 2019", f"{H12['km_n'][g]['deaths']:,}/{H12['km_n'][g]['n']:,}")]
+        for i, (lab, v) in enumerate(rows):
+            yy = ytop + 11.6 + i * 2.85
+            ax.text(x + 1.4, yy, lab, fontsize=5.0, color=F1GREY, va="center")
+            ax.text(x + W - 1.4, yy, v, fontsize=5.2, va="center", ha="right")
+        shade = lambda q: tint(c, 0.18 + 0.82 * q) if q > 0 else None
+        fills = {"feet": shade(f["feet"]["prop"]), "hands": shade(f["hands"]["prop"]), "low_back": shade(f["low_back"]["prop"])}
+        H, yb0 = 24.5, ytop + 20.6
+        cf, cb = x + W * 0.29, x + W * 0.71
+        draw_body(ax, cf, yb0, H, "front", fills)
+        draw_body(ax, cb, yb0, H, "back", fills)
+        ax.text(cf, yb0 + H + 1.6, "front", ha="center", va="center", fontsize=4.5, color=F1LIGHT)
+        ax.text(cb, yb0 + H + 1.6, "back", ha="center", va="center", fontsize=4.5, color=F1LIGHT)
+        # site table
+        yt = ytop + 51.4
+        cols = [("Feet", f["feet"]["prop"], 0), ("Hands", f["hands"]["prop"], 0), ("Low\nback", f["low_back"]["prop"], 0),
+                ("Feet\nonly", f["feet_only"]["prop"] if f["feet"]["prop"] > 0 else None, 1)]
+        cw = (W - 2.0) / 4
+        ax.plot([x + 1.0, x + W - 1.0], [yt - 3.6, yt - 3.6], color=F1RULE, lw=0.4)
+        for j, (lab, q, dec) in enumerate(cols):
+            cx = x + 1.0 + cw * (j + 0.5)
+            ax.text(cx, yt + 0.9, lab, ha="center", va="bottom", fontsize=4.6, color=F1GREY, linespacing=1.0)
+            txt = "–" if q is None else (f"{q * 100:.1f}%" if dec else f"{q * 100:.0f}%")
+            on = q is not None and q > 0
+            ax.text(cx, yt + 2.6, txt, ha="center", va="center", fontsize=5.6, fontweight="bold" if on else "normal",
+                    color=F1K if on else F1LIGHT)
+        # glycemic status among adults with known status
+        ax.text(x + 1.4, ytop + 57.0, "Glycemic status, %", fontsize=4.8, color=F1GREY, va="center")
+        left, wb, yg_ = x + 1.4, W - 2.8, ytop + 58.6
+        for lab, col, key in F1GLY:
+            q = f[key]["prop"]
+            ax.add_patch(Rectangle((left, yg_), wb * q, 3.4, fc=col, ec="white", lw=0.5, zorder=3))
+            if q >= 0.04:
+                ax.text(left + wb * q / 2, yg_ + 1.7, f"{q * 100:.0f}", ha="center", va="center",
+                        fontsize=5.0 if q >= 0.09 else 4.4, zorder=4, color="white" if col == "#a23b3b" else F1K)
+            left += wb * q
+        ax.add_patch(Rectangle((x + 1.4, yg_), wb, 3.4, fc="none", ec="#8a8a8a", lw=0.35, zorder=5))
+    yk = ytop + 68.4
+    for k, (lab, col, _) in enumerate(F1GLY):
+        ax.add_patch(Rectangle((xs[0] + k * 27, yk - 0.9), 2.4, 1.8, fc=col, ec="#8a8a8a", lw=0.3))
+        ax.text(xs[0] + k * 27 + 3.2, yk, lab, fontsize=5.4, va="center")
+    save(fig, "Fig1_flow")
+    plt.show()
 LEGENDS["Fig1_flow"] = (
-    "**Figure 1 | Participant flow (STROBE).** Adults aged ≥40 years in NHANES 1999–2004 with a valid 10-g monofilament result "
-    "for at least one foot and an answer to the question on pain or tingling in the hands or feet were assigned to six mutually "
-    "exclusive groups by the monofilament result (any insensate site among three plantar sites on either foot) and by "
-    "self-reported symptoms in the past 3 months. n, unweighted; %, survey-weighted percentage of US adults aged ≥40 years "
-    "(95% CI, Taylor linearization with design degrees of freedom); deaths/n, participants eligible for mortality linkage "
-    "with follow-up time, through 31 December 2019. SMN, symptomatic, monofilament-normal.")
+    "**Figure 1 | Study design and the six groups.** **a**, Participant flow (STROBE). **b**, Each group: n (unweighted), "
+    "survey-weighted prevalence among US adults aged ≥40 years (95% CI) and deaths through 2019 among participants eligible "
+    "for linkage. Body charts are shaded by the survey-weighted share of the group reporting pain or tingling at each site "
+    "(hands and feet, front view; low back, back view), with the shares below; feet only, foot symptoms without hand "
+    "symptoms or low back pain. Glycemic status is among adults with known status. SMN, symptomatic, monofilament-normal.")
 
 # %% [markdown]
 # ## Figure 2 — Transfer test (a, score distributions; b, survey-weighted contrasts with pipeline-bootstrap uncertainty)

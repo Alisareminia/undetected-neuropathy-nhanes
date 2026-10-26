@@ -95,6 +95,35 @@ OUT$smn_pain_sites <- list(n = sum(coh & d$group == "D_hidden"),
   mpq070_missing_cohort = sum(coh & d$mpq070_missing == 1),
   mpq070_missing_by_group = as.list(table(d$group[coh & d$mpq070_missing == 1])))
 print(str(OUT$smn_pain_sites))
+
+# Figure 1b: pain or tingling at each site and glycemic status (among adults with known status) by group, survey-weighted
+d$site_foot <- as.integer(d$sx_feet_only == 1 | d$sx_hands_and_feet == 1)
+d$site_hand <- as.integer(round(d$n_pain_sites - d$site_foot - d$back_pain) == 1)
+d$site_back <- as.integer(d$back_pain == 1)
+d$feet_only <- as.integer(d$site_foot == 1 & d$site_hand == 0 & d$site_back == 0)
+d$gly_known <- as.integer(d$diabetes == 1 | !is.na(d$hba1c))
+d$gly_normal <- as.integer(d$diabetes == 0 & !is.na(d$hba1c) & d$hba1c < 5.7)
+d$gly_pre <- as.integer(d$diabetes == 0 & !is.na(d$hba1c) & d$hba1c >= 5.7)
+des <- update(des, site_foot = d$site_foot, site_hand = d$site_hand, site_back = d$site_back, feet_only = d$feet_only,
+              gly_normal = d$gly_normal, gly_pre = d$gly_pre, gly_dm = d$diabetes)
+share <- function(v, ok) {
+  dz <- des[ok, ]
+  m <- as.numeric(coef(svymean(as.formula(paste0("~", v)), dz)))
+  ci <- tryCatch({pr <- svyciprop(as.formula(paste0("~I(", v, " == 1)")), dz, method = "logit", df = DF)
+                  as.numeric(attr(pr, "ci"))}, error = function(e) c(NA, NA))
+  if (m %in% c(0, 1)) ci <- c(NA, NA)
+  list(prop = m, lo = ci[1], hi = ci[2], n = sum(ok))
+}
+OUT$fig1 <- list()
+for (g in SCORED) {
+  ok <- coh & d$group == g
+  okk <- ok & d$gly_known == 1
+  OUT$fig1[[g]] <- list(feet = share("site_foot", ok), hands = share("site_hand", ok), low_back = share("site_back", ok),
+                        feet_only = share("feet_only", ok), gly_normal = share("gly_normal", okk),
+                        gly_prediabetes = share("gly_pre", okk), gly_diabetes = share("gly_dm", okk),
+                        n_gly_known = sum(okk))
+}
+print(str(OUT$fig1$D_hidden))
 print(str(prev$D_hidden))
 
 # ---------------------------------------------------------------- score contrasts (scores treated as fixed)
